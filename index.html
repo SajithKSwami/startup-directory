@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Startup Directory Explorer</title>
+<meta name="description" content="Search and filter 9,000 startups by industry, sector, location, founding year, funding and investors.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Source+Serif+4:wght@400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root{--font-anthropic-sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;--font-anthropic-serif:"Source Serif 4",Georgia,serif;
+--cds-font-size-caption:.8125rem;--cds-font-size-body:.9375rem;--cds-font-size-heading:1rem;--cds-font-size-title:1.75rem;--cds-font-weight-medium:600;
+--cds-gap-xs:.25rem;--cds-gap-sm:.5rem;--cds-gap-md:1rem;--cds-gap-lg:1.5rem;--cds-pad-xs:.25rem;--cds-pad-sm:.5rem;--cds-pad-lg:1.25rem;--cds-radius:8px;--cds-dur-slow:.3s;
+--color-fg:#1f1e1c;--color-fg-muted:#6b6862;--color-bg:#f7f6f3;--color-panel:#ffffff;--color-border-line:#e4e1da;--color-bad:#c4412f;--accent:#2f6fb5;
+--cds-chart-muted:#d6d2c9;--cds-chart-grid:#ece9e3;--cds-chart-axis:#bdb8ad;--cds-surface-popover:#ffffff;--cds-border:#e4e1da;--cds-shadow-popover:0 4px 16px rgba(0,0,0,.12);--cds-text-secondary:#6b6862;--skel:#ece9e3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--color-fg:#ecebe8;--color-fg-muted:#a29f98;--color-bg:#1a1a19;--color-panel:#242422;--color-border-line:#3a3936;--color-bad:#e5735f;--accent:#6ea6e6;--cds-chart-muted:#4a4844;--cds-chart-grid:#33322f;--cds-chart-axis:#55534e;--cds-surface-popover:#2c2c2a;--cds-border:#3a3936;--cds-shadow-popover:0 4px 16px rgba(0,0,0,.5);--cds-text-secondary:#a29f98;--skel:#33322f}}
+:root[data-theme="dark"]{--color-fg:#ecebe8;--color-fg-muted:#a29f98;--color-bg:#1a1a19;--color-panel:#242422;--color-border-line:#3a3936;--color-bad:#e5735f;--accent:#6ea6e6;--cds-chart-muted:#4a4844;--cds-chart-grid:#33322f;--cds-chart-axis:#55534e;--cds-surface-popover:#2c2c2a;--cds-border:#3a3936;--cds-shadow-popover:0 4px 16px rgba(0,0,0,.5);--cds-text-secondary:#a29f98;--skel:#33322f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans);-webkit-text-size-adjust:100%}
+.sx-page{max-width:1200px;margin-inline:auto;padding:clamp(16px,3vw,32px) 16px 48px}
+.dash-skeleton{color:transparent!important;background:var(--skel);border-radius:6px;animation:sxpulse 1.4s ease-in-out infinite}
+@keyframes sxpulse{50%{opacity:.5}}
+.sx-banner{background:var(--color-panel);border:1px solid var(--color-border-line);border-left:4px solid var(--accent);border-radius:var(--cds-radius);padding:var(--cds-pad-sm) var(--cds-pad-lg);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);line-height:1.5}
+.sx-banner b{color:var(--color-fg)}
+.sx-foot{color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);text-align:center}
+
+.sx-wrap{font-family:var(--font-anthropic-sans);container-type:inline-size;display:flex;flex-direction:column;gap:var(--cds-gap-lg)}
+.sx-head h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
+.sx-take{color:var(--color-fg-muted);margin:var(--cds-gap-xs) 0 0;font-size:var(--cds-font-size-body)}
+.sx-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0}
+.sx-card h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.sx-note{color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);margin:var(--cds-gap-xs) 0 var(--cds-gap-md)}
+.sx-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:var(--cds-gap-sm);align-items:end}
+.sx-filters label{display:flex;flex-direction:column;gap:var(--cds-gap-xs);font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);min-width:0}
+.sx-filters input,.sx-filters select{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-bg);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);min-width:0;width:100%;box-sizing:border-box}
+.sx-search{grid-column:1/-1}
+.sx-years{display:flex;gap:var(--cds-gap-xs)}
+.sx-actions{display:flex;flex-wrap:wrap;gap:var(--cds-gap-xs);align-items:center;margin-top:var(--cds-gap-md)}
+.sx-btn,.sx-chip{font:inherit;font-size:var(--cds-font-size-caption);color:var(--color-fg);background:var(--color-bg);border:1px solid var(--color-border-line);border-radius:999px;padding:var(--cds-pad-xs) var(--cds-pad-sm);cursor:pointer}
+.sx-btn:hover,.sx-chip:hover{border-color:var(--color-fg-muted)}
+.sx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:var(--cds-gap-md)}
+.sx-kpi .sx-big{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);font-variant-numeric:tabular-nums;margin-top:var(--cds-gap-xs);min-height:1.2em}
+.sx-kpi .sx-lab{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.sx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:var(--cds-gap-md)}
+.sx-bars{display:flex;flex-direction:column;gap:2px;min-height:12rem}
+.sx-bar{display:grid;grid-template-columns:minmax(0,9rem) 1fr auto;gap:var(--cds-gap-sm);align-items:center;font:inherit;font-size:var(--cds-font-size-caption);color:var(--color-fg);background:none;border:0;padding:3px 4px;border-radius:var(--cds-radius);cursor:pointer;text-align:left;width:100%}
+.sx-bar:hover{background:var(--color-bg)}
+.sx-bar.on{background:var(--color-bg);outline:1px solid var(--color-border-line)}
+.sx-bar .l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sx-bar .t{display:block;height:10px;border-radius:4px;overflow:hidden}
+.sx-bar .f{display:block;height:100%;border-radius:4px;background:var(--cds-chart-muted)}
+.sx-bar .v{font-variant-numeric:tabular-nums;color:var(--color-fg-muted);min-width:3.5ch;text-align:right}
+.sx-chart{position:relative;min-height:200px}
+.sx-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);white-space:nowrap}
+.sx-tip .k{color:var(--cds-text-secondary)}
+.sx-tablebox{max-height:36rem;overflow:auto;border-top:1px solid var(--color-border-line)}
+.sx-table{width:100%;border-collapse:collapse;font-size:var(--cds-font-size-caption);font-variant-numeric:tabular-nums}
+.sx-table th{position:sticky;top:0;background:var(--color-panel);text-align:left;font-weight:var(--cds-font-weight-medium);border-bottom:1px solid var(--color-border-line);padding:0;z-index:1}
+.sx-table th button{font:inherit;color:var(--color-fg-muted);background:none;border:0;padding:var(--cds-pad-sm);cursor:pointer;width:100%;text-align:inherit}
+.sx-table td{padding:var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);vertical-align:top}
+.sx-table .num{text-align:right}
+.sx-table tbody tr.sx-row{cursor:pointer}
+.sx-table tbody tr.sx-row:hover td{background:var(--color-bg)}
+.sx-co{font-weight:var(--cds-font-weight-medium)}
+.sx-sub{color:var(--color-fg-muted)}
+.sx-detail td{background:var(--color-bg)}
+.sx-detail dl{display:grid;grid-template-columns:auto 1fr;gap:var(--cds-gap-xs) var(--cds-gap-md);margin:var(--cds-gap-sm) 0 0}
+.sx-detail dt{color:var(--color-fg-muted)}
+.sx-detail dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.sx-detail p{margin:0;font-size:var(--cds-font-size-body);line-height:1.5}
+.sx-detail a{color:inherit}
+.sx-more{margin-top:var(--cds-gap-md)}
+.sx-fail{display:flex;align-items:center;justify-content:center;gap:var(--cds-gap-xs);color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);min-height:inherit}
+.sx-fail::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad)}
+[data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+@container (max-width:640px){.sx-hide-sm{display:none}}
+</style>
+</head>
+<body>
+<main class="sx-page">
+<div class="sx-wrap">
+  <div class="sx-banner" role="note"><b>Data as of about 2016.</b> This is a historical snapshot: founding years end around 2015–2016 and funding reflects that period. Many companies may have since shut down, been acquired or changed focus — verify before you reach out. About 73% list no funding, so totals and medians cover only those that disclosed.</div>
+
+  <header class="sx-head" id="overview">
+    <h1>Startup directory explorer</h1>
+    <p class="sx-take dash-skeleton" id="sx-take">—</p>
+  </header>
+
+  <section class="sx-card" id="filters">
+    <h2>Filters</h2>
+    <p class="sx-note">Every chart, figure and the company list follow these. Click any bar below to filter by it; click again to clear.</p>
+    <div class="sx-filters">
+      <label class="sx-search">Search name, description, category or investor
+        <input id="f-q" type="search" placeholder="e.g. payments, Sequoia, recruitment" autocomplete="off"></label>
+      <label>Industry group<select id="f-group"></select></label>
+      <label>Sector<select id="f-sector"></select></label>
+      <label>Sub-sector<select id="f-subsector"></select></label>
+      <label>Country<select id="f-country"></select></label>
+      <label>City<select id="f-city"></select></label>
+      <label>Funding raised<select id="f-band"></select></label>
+      <label>Ownership<select id="f-own"></select></label>
+      <label>Founded
+        <span class="sx-years"><input id="f-y0" type="number" inputmode="numeric" placeholder="From" aria-label="Founded from"><input id="f-y1" type="number" inputmode="numeric" placeholder="To" aria-label="Founded to"></span></label>
+    </div>
+    <div class="sx-actions"><button class="sx-btn" id="f-reset" type="button">Reset all</button><span id="f-chips" class="sx-actions" style="margin:0"></span></div>
+  </section>
+
+  <section class="sx-kpis" id="headline">
+    <div class="sx-card sx-kpi"><div class="sx-lab">Companies</div><div class="sx-big dash-skeleton" id="k-n">—</div></div>
+    <div class="sx-card sx-kpi"><div class="sx-lab">With disclosed funding</div><div class="sx-big dash-skeleton" id="k-funded">—</div></div>
+    <div class="sx-card sx-kpi"><div class="sx-lab">Total disclosed funding</div><div class="sx-big dash-skeleton" id="k-total">—</div></div>
+    <div class="sx-card sx-kpi"><div class="sx-lab">Median disclosed funding</div><div class="sx-big dash-skeleton" id="k-median">—</div></div>
+    <div class="sx-card sx-kpi"><div class="sx-lab">Countries · cities</div><div class="sx-big dash-skeleton" id="k-geo">—</div></div>
+  </section>
+
+  <section class="sx-grid" id="breakdowns">
+    <div class="sx-card" id="by-group"><h2>Industry group</h2><p class="sx-note">Broad grouping of each company's primary category.</p><div class="sx-bars dash-skeleton" data-dim="industry_group"></div></div>
+    <div class="sx-card" id="by-sector"><h2>Top sectors</h2><p class="sx-note">Primary category; regional labels such as “- India” merged.</p><div class="sx-bars dash-skeleton" data-dim="sector"></div></div>
+    <div class="sx-card" id="by-country"><h2>Top countries</h2><p class="sx-note">Headquarters country.</p><div class="sx-bars dash-skeleton" data-dim="country"></div></div>
+    <div class="sx-card" id="by-city"><h2>Top cities</h2><p class="sx-note">Headquarters city.</p><div class="sx-bars dash-skeleton" data-dim="city"></div></div>
+    <div class="sx-card" id="by-band"><h2>Funding raised</h2><p class="sx-note">Total disclosed funding per company. Most list none.</p><div class="sx-bars dash-skeleton" data-dim="funding_band"></div></div>
+    <div class="sx-card" id="by-investor"><h2>Most active investors</h2><p class="sx-note">Companies naming the investor as a key backer.</p><div class="sx-bars dash-skeleton" data-dim="investor"></div></div>
+  </section>
+
+  <section class="sx-card" id="by-year">
+    <h2>Companies by founding year</h2>
+    <p class="sx-note">Click a year to filter to it. Years before 1995 are grouped into the first bar.</p>
+    <div class="sx-chart dash-skeleton" id="sx-years"></div>
+  </section>
+
+  <section class="sx-card" id="companies">
+    <h2>Companies</h2>
+    <p class="sx-note" id="sx-tnote">Click a company for its description, investors, categories and links. Click a column to sort.</p>
+    <div class="sx-tablebox">
+      <table class="sx-table">
+        <thead><tr>
+          <th data-sort="company_name"><button type="button">Company</button></th>
+          <th data-sort="sector"><button type="button">Sector · sub-sector</button></th>
+          <th data-sort="country"><button type="button">Location</button></th>
+          <th data-sort="year" class="num"><button type="button">Founded</button></th>
+          <th data-sort="funding_usd" class="num"><button type="button">Funding</button></th>
+          <th data-sort="alexa_rank" class="num sx-hide-sm"><button type="button">Web rank</button></th>
+        </tr></thead>
+        <tbody id="sx-tbody"></tbody>
+      </table>
+    </div>
+    <button class="sx-btn sx-more" id="sx-more" type="button" hidden>Show more</button>
+  </section>
+  <p class="sx-foot">Built by Sajithkumar Swaminathan · Get Hired in Canada</p>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const fmtN = d3.format(',');
+  const fmtMoney = (v) => {
+    if (v == null) return '—';
+    if (v >= 1e9) return '$' + d3.format('.3~')(v / 1e9) + 'B';
+    if (v >= 1e6) return '$' + d3.format('.3~')(v / 1e6) + 'M';
+    if (v >= 1e3) return '$' + d3.format('.3~')(v / 1e3) + 'K';
+    return '$' + fmtN(v);
+  };
+  const BANDS = ['Under $1M', '$1M–5M', '$5M–20M', '$20M–100M', '$100M+', 'Undisclosed / none'];
+  const num = (x) => (x === '' || x == null || isNaN(Number(x)) ? null : Number(x));
+
+  let raw = null, rows = [];
+  const parse = (data) => {
+    if (data === raw) return;
+    raw = data;
+    rows = data.map((r) => {
+      const inv = r.investors ? r.investors.split('; ').filter(Boolean) : [];
+      return {
+        ...r,
+        id: Number(r.id), year: num(r.year), funding_usd: num(r.funding_usd),
+        alexa_rank: num(r.alexa_rank), traffic: num(r.traffic), inv,
+        _q: [r.company_name, r.short_description, r.description, r.category_paths, r.investors, r.parent_org, r.city, r.country].join(' ').toLowerCase(),
+      };
+    });
+  };
+
+  const blank = () => ({ q: '', industry_group: '', sector: '', subsector: '', country: '', city: '', funding_band: '', ownership: '', investor: '', y0: null, y1: null });
+  let st = blank();
+  let sort = { key: 'funding_usd', dir: -1 };
+  let shown = 100, openId = null;
+
+  const match = (r, skip) => {
+    if (st.q && !st.q.split(/\s+/).every((t) => r._q.includes(t))) return false;
+    for (const k of ['industry_group', 'sector', 'subsector', 'country', 'city', 'funding_band', 'ownership']) {
+      if (k !== skip && st[k] && r[k] !== st[k]) return false;
+    }
+    if (skip !== 'investor' && st.investor && !r.inv.includes(st.investor)) return false;
+    if (skip !== 'year') {
+      if (st.y0 != null && (r.year == null || r.year < st.y0)) return false;
+      if (st.y1 != null && (r.year == null || r.year > st.y1)) return false;
+    }
+    return true;
+  };
+
+  const count = (list, key) => {
+    const m = new Map();
+    for (const r of list) {
+      const ks = key === 'investor' ? r.inv : [r[key]];
+      for (const k of ks) if (k) m.set(k, (m.get(k) || 0) + 1);
+    }
+    return [...m].map(([key, n]) => ({ key, n }));
+  };
+
+  // ---------- controls ----------
+  const selects = { industry_group: $('f-group'), sector: $('f-sector'), subsector: $('f-subsector'), country: $('f-country'), city: $('f-city'), funding_band: $('f-band'), ownership: $('f-own') };
+  const allLabel = { industry_group: 'All groups', sector: 'All sectors', subsector: 'All sub-sectors', country: 'All countries', city: 'All cities', funding_band: 'Any funding', ownership: 'Any' };
+  const fillSelect = (key) => {
+    const sel = selects[key];
+    // options come from rows matching every other filter, so choices narrow together
+    let items = count(rows.filter((r) => match(r, key)), key);
+    if (key === 'funding_band') items.sort((a, b) => BANDS.indexOf(a.key) - BANDS.indexOf(b.key));
+    else items.sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
+    if (st[key] && !items.some((d) => d.key === st[key])) items.unshift({ key: st[key], n: 0 });
+    sel.replaceChildren(new Option(allLabel[key], ''), ...items.map((d) => new Option(`${d.key} (${fmtN(d.n)})`, d.key)));
+    sel.value = st[key];
+  };
+  for (const [key, sel] of Object.entries(selects)) {
+    sel.addEventListener('change', () => {
+      st[key] = sel.value;
+      if (key === 'industry_group') { st.sector = ''; st.subsector = ''; }
+      if (key === 'sector') st.subsector = '';
+      if (key === 'country') st.city = '';
+      update();
+    });
+  }
+  let qTimer;
+  $('f-q').addEventListener('input', (e) => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { st.q = e.target.value.trim().toLowerCase(); update(); }, 180);
+  });
+  const yearInput = (el, k) => el.addEventListener('change', () => {
+    const v = el.value === '' ? null : Math.round(Number(el.value));
+    st[k] = v != null && v >= 1800 && v <= 2100 ? v : null;
+    update();
+  });
+  yearInput($('f-y0'), 'y0'); yearInput($('f-y1'), 'y1');
+  $('f-reset').addEventListener('click', () => { st = blank(); $('f-q').value = ''; update(); });
+
+  const chipNames = { industry_group: 'Group', sector: 'Sector', subsector: 'Sub-sector', country: 'Country', city: 'City', funding_band: 'Funding', ownership: 'Ownership', investor: 'Investor' };
+  const drawChips = () => {
+    const chips = [];
+    for (const [k, name] of Object.entries(chipNames)) if (st[k]) chips.push([`${name}: ${st[k]} ×`, () => { st[k] = ''; }]);
+    if (st.q) chips.push([`Search: “${st.q}” ×`, () => { st.q = ''; $('f-q').value = ''; }]);
+    if (st.y0 != null || st.y1 != null) chips.push([`Founded ${st.y0 ?? '…'}–${st.y1 ?? '…'} ×`, () => { st.y0 = st.y1 = null; }]);
+    $('f-chips').replaceChildren(...chips.map(([t, fn]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'sx-chip'; b.textContent = t;
+      b.addEventListener('click', () => { fn(); update(); }); return b;
+    }));
+  };
+
+  // ---------- bar lists ----------
+  const drawBars = (el, key, list) => {
+    let items = count(list, key);
+    if (key === 'funding_band') items.sort((a, b) => BANDS.indexOf(a.key) - BANDS.indexOf(b.key));
+    else items.sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
+    items = items.slice(0, 12);
+    const max = d3.max(items, (d) => d.n) || 1;
+    const current = st[key];
+    el.replaceChildren(...items.map((d, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'sx-bar' + (current === d.key ? ' on' : '');
+      b.title = d.key;
+      const l = document.createElement('span'); l.className = 'l'; l.textContent = d.key;
+      const t = document.createElement('span'); t.className = 't';
+      const f = document.createElement('span'); f.className = 'f'; f.style.width = (d.n / max * 100) + '%';
+      f.style.background = current === d.key || (!current && i === 0) ? 'var(--accent)' : 'var(--cds-chart-muted)';
+      t.append(f);
+      const v = document.createElement('span'); v.className = 'v'; v.textContent = fmtN(d.n);
+      b.append(l, t, v);
+      b.addEventListener('click', () => {
+        st[key] = st[key] === d.key ? '' : d.key;
+        if (key === 'industry_group') { st.sector = ''; st.subsector = ''; }
+        if (key === 'sector') st.subsector = '';
+        if (key === 'country') st.city = '';
+        update();
+      });
+      return b;
+    }));
+    if (!items.length) { const p = document.createElement('div'); p.className = 'sx-note'; p.textContent = 'No companies match these filters.'; el.append(p); }
+  };
+
+  // ---------- year chart ----------
+  const yearBox = $('sx-years');
+  const tip = document.createElement('div'); tip.className = 'sx-tip'; tip.hidden = true;
+  const drawYears = (list) => {
+    const FIRST = 1995, LAST = d3.max(rows, (r) => r.year) || 2016;
+    const m = new Map();
+    for (const r of list) if (r.year != null) { const y = Math.max(FIRST, r.year); m.set(y, (m.get(y) || 0) + 1); }
+    const data = d3.range(FIRST, LAST + 1).map((y) => ({ y, n: m.get(y) || 0 }));
+    const W = yearBox.clientWidth || 600, H = 200, mt = 8, mb = 22;
+    const svg = d3.create('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('display', 'block');
+    const yMax = d3.max(data, (d) => d.n) || 1;
+    const y = d3.scaleLinear([0, yMax], [H - mb, mt]).nice();
+    // left margin from widest tick label
+    yearBox.replaceChildren(svg.node());
+    const probe = svg.append('text').style('font-size', 'var(--cds-font-size-caption)').text(fmtN(y.domain()[1]));
+    const ml = Math.ceil(probe.node().getComputedTextLength() || 30) + 8; probe.remove();
+    const x = d3.scaleBand(data.map((d) => d.y), [ml, W - 4]).padding(0.2);
+    const gy = svg.append('g').attr('transform', `translate(${ml},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(W - ml - 4)).tickFormat(fmtN));
+    gy.attr('font-size', null).attr('font-family', null).select('.domain').remove();
+    gy.selectAll('line').attr('stroke', 'var(--cds-chart-grid)');
+    gy.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    const step = Math.max(1, Math.ceil(36 / x.step()));
+    const gx = svg.append('g').attr('transform', `translate(0,${H - mb})`).call(d3.axisBottom(x).tickSize(0).tickPadding(6).tickValues(data.map((d) => d.y).filter((v, i) => i % step === 0)).tickFormat((v) => (v === FIRST ? '≤' + v : String(v))));
+    gx.attr('font-size', null).attr('font-family', null).select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    gx.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)');
+    const sel = (d) => st.y0 != null && st.y0 === st.y1 && (d.y === st.y0 || (d.y === FIRST && st.y0 <= FIRST));
+    svg.append('g').selectAll('rect').data(data).join('rect')
+      .attr('x', (d) => x(d.y)).attr('width', x.bandwidth())
+      .attr('y', (d) => y(d.n)).attr('height', (d) => Math.max(0, y(0) - y(d.n))).attr('rx', 3)
+      .attr('fill', (d) => (st.y0 == null || sel(d) ? 'var(--accent)' : 'var(--cds-chart-muted)'))
+      .style('cursor', 'pointer')
+      .on('mousemove', (ev, d) => {
+        tip.hidden = false;
+        tip.replaceChildren();
+        const k = document.createElement('div'); k.className = 'k'; k.textContent = d.y === FIRST ? `${FIRST} or earlier` : String(d.y);
+        const v = document.createElement('div'); v.textContent = `${fmtN(d.n)} companies`;
+        tip.append(k, v);
+        const [px, py] = d3.pointer(ev, yearBox);
+        const tw = tip.offsetWidth;
+        tip.style.left = Math.min(Math.max(0, px + 10), yearBox.clientWidth - tw) + 'px';
+        tip.style.top = Math.max(0, py - 40) + 'px';
+      })
+      .on('mouseleave', () => { tip.hidden = true; })
+      .on('click', (ev, d) => {
+        if (sel(d)) { st.y0 = st.y1 = null; }
+        else if (d.y === FIRST) { st.y0 = 1800; st.y1 = FIRST; }
+        else { st.y0 = st.y1 = d.y; }
+        update();
+      });
+    yearBox.replaceChildren(svg.node(), tip);
+  };
+
+  // ---------- table ----------
+  const tbody = $('sx-tbody');
+  document.querySelectorAll('.sx-table th[data-sort]').forEach((th) => {
+    th.querySelector('button').addEventListener('click', () => {
+      const k = th.dataset.sort;
+      sort = sort.key === k ? { key: k, dir: -sort.dir } : { key: k, dir: ['company_name', 'sector', 'country', 'alexa_rank'].includes(k) ? 1 : -1 };
+      shown = 100; drawTable(lastList);
+    });
+  });
+  const td = (text, cls) => { const c = document.createElement('td'); if (cls) c.className = cls; c.textContent = text; return c; };
+  const detailRow = (r) => {
+    const tr = document.createElement('tr'); tr.className = 'sx-detail';
+    const c = document.createElement('td'); c.colSpan = 6;
+    const p = document.createElement('p'); p.textContent = r.description || r.short_description || 'No description listed.';
+    const dl = document.createElement('dl');
+    const add = (k, v, href) => {
+      if (!v) return;
+      const dt = document.createElement('dt'); dt.textContent = k;
+      const dd = document.createElement('dd');
+      if (href && /^https?:\/\//.test(href)) { const a = document.createElement('a'); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = v; dd.append(a); }
+      else dd.textContent = v;
+      dl.append(dt, dd);
+    };
+    add('Website', r.website, r.website);
+    add('LinkedIn', r.linkedin, r.linkedin);
+    add('Categories', r.category_paths.split(' | ').join('  ·  '));
+    add('Key investors', r.inv.join(', '));
+    add('Funding', r.funding_usd != null ? fmtMoney(r.funding_usd) + ' disclosed' : 'None disclosed');
+    add('Ownership', r.parent_org ? `Subsidiary of ${r.parent_org}` : 'Independent');
+    add('Web rank', r.alexa_rank != null ? '#' + fmtN(r.alexa_rank) : '');
+    add('Traffic / users', r.traffic != null ? fmtN(r.traffic) : '');
+    c.append(p, dl); tr.append(c); return tr;
+  };
+  let lastList = [];
+  const drawTable = (list) => {
+    lastList = list;
+    const k = sort.key, dir = sort.dir;
+    const sorted = list.slice().sort((a, b) => {
+      const va = a[k], vb = b[k];
+      if (va == null || va === '') return (vb == null || vb === '') ? 0 : 1;
+      if (vb == null || vb === '') return -1;
+      return (typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))) * dir;
+    });
+    document.querySelectorAll('.sx-table th[data-sort]').forEach((th) => th.setAttribute('aria-sort', th.dataset.sort === k ? (dir > 0 ? 'ascending' : 'descending') : 'none'));
+    const out = [];
+    for (const r of sorted.slice(0, shown)) {
+      const tr = document.createElement('tr'); tr.className = 'sx-row'; tr.dataset.key = r.id;
+      const c1 = document.createElement('td');
+      const n = document.createElement('div'); n.className = 'sx-co'; n.textContent = r.company_name;
+      const s = document.createElement('div'); s.className = 'sx-sub'; s.textContent = r.short_description;
+      c1.append(n, s);
+      const c2 = document.createElement('td');
+      const a = document.createElement('div'); a.textContent = r.sector;
+      const b = document.createElement('div'); b.className = 'sx-sub'; b.textContent = r.subsector;
+      c2.append(a, b);
+      tr.append(c1, c2, td([r.city, r.country].filter(Boolean).join(', ')), td(r.year ?? '—', 'num'), td(fmtMoney(r.funding_usd), 'num'), td(r.alexa_rank != null ? '#' + fmtN(r.alexa_rank) : '—', 'num sx-hide-sm'));
+      tr.addEventListener('click', () => { openId = openId === r.id ? null : r.id; drawTable(lastList); });
+      out.push(tr);
+      if (openId === r.id) out.push(detailRow(r));
+    }
+    tbody.replaceChildren(...out);
+    const more = $('sx-more');
+    more.hidden = sorted.length <= shown;
+    more.textContent = `Show more (${fmtN(Math.min(shown, sorted.length))} of ${fmtN(sorted.length)} shown)`;
+    $('sx-tnote').textContent = `${fmtN(sorted.length)} companies. Click one for its description, investors, categories and links. Click a column to sort.`;
+  };
+  $('sx-more').addEventListener('click', () => { shown += 200; drawTable(lastList); });
+
+  // ---------- render ----------
+  const skel = document.querySelectorAll('.dash-skeleton');
+  const bars = document.querySelectorAll('.sx-bars[data-dim]');
+  const kpi = (id, t) => { $(id).textContent = t; };
+
+  function update() {
+    const list = rows.filter((r) => match(r));
+    Object.keys(selects).forEach(fillSelect);
+    if (document.activeElement !== $('f-y0')) $('f-y0').value = st.y0 != null && st.y0 > 1800 ? st.y0 : '';
+    if (document.activeElement !== $('f-y1')) $('f-y1').value = st.y1 ?? '';
+    drawChips();
+    const funded = list.filter((r) => r.funding_usd != null);
+    kpi('k-n', fmtN(list.length));
+    kpi('k-funded', list.length ? `${fmtN(funded.length)} · ${d3.format('.0%')(funded.length / list.length)}` : '0');
+    kpi('k-total', funded.length ? fmtMoney(d3.sum(funded, (r) => r.funding_usd)) : '—');
+    kpi('k-median', funded.length ? fmtMoney(d3.median(funded, (r) => r.funding_usd)) : '—');
+    kpi('k-geo', `${fmtN(new Set(list.map((r) => r.country)).size)} · ${fmtN(new Set(list.map((r) => r.city).filter(Boolean)).size)}`);
+    bars.forEach((el) => drawBars(el, el.dataset.dim, list));
+    drawYears(list);
+    shown = 100;
+    drawTable(list);
+    const topS = count(list, 'sector').sort((a, b) => b.n - a.n)[0];
+    const topC = count(list, 'city').sort((a, b) => b.n - a.n)[0];
+    $('sx-take').textContent = !list.length
+      ? 'No companies match these filters. Clear one to widen the search.'
+      : `${fmtN(list.length)} of ${fmtN(rows.length)} companies` +
+        (topS ? `, led by ${topS.key} (${fmtN(topS.n)})` : '') +
+        (topC ? `; ${topC.key} is the busiest hub (${fmtN(topC.n)})` : '') + '.';
+  }
+
+  const markFailed = () => {
+    skel.forEach((el) => el.classList.remove('dash-skeleton'));
+    document.querySelectorAll('.sx-bars, #sx-years').forEach((el) => {
+      const f = document.createElement('div'); f.className = 'sx-fail'; f.textContent = 'Failed to load'; el.replaceChildren(f);
+    });
+  };
+  d3.csv('startups.csv').then((data) => {
+    skel.forEach((el) => el.classList.remove('dash-skeleton'));
+    parse(data);
+    update();
+    let w = window.innerWidth, t;
+    window.addEventListener('resize', () => {
+      clearTimeout(t);
+      t = setTimeout(() => { if (window.innerWidth !== w) { w = window.innerWidth; drawYears(rows.filter((r) => match(r))); } }, 150);
+    });
+  }).catch(markFailed);
+})();
+</script>
+</main>
+</body>
+</html>
